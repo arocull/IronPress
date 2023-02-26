@@ -7,11 +7,10 @@ use std::path::{Path};
 
 pub(crate) fn execute(paths: Vec<String>, width: u32, height: u32) {
     let mut images: Vec<Rgba32FImage> = Vec::new();
-    let mut out_path: &Path = Path::new("./out/test.png");
+    let mut out_path: &Path = Path::new("./out/pack.png");
 
     let mut use_alpha = false;
 
-    // First argument is where the executable is
     // arguments 0-3 are channels RGBA
     // argument 4 is output
     for i in 0..paths.len() {
