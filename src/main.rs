@@ -6,6 +6,7 @@ use image::buffer::ConvertBuffer;
 use std::path::{Path};
 
 mod channel_pack;
+mod channel_flip;
 mod mask_sum;
 mod util;
 
@@ -27,5 +28,7 @@ fn main() {
         mask_sum::execute(args_packed, 2048, 2048);
     } else if command.eq("pack") {
         channel_pack::execute(args_packed, 2048, 2048);
+    } else if command.eq("flipnorm") {
+        channel_flip::execute(args_packed);
     }
 }
