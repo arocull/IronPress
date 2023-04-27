@@ -5,21 +5,37 @@ use image::{ImageBuffer, DynamicImage, Rgb, Rgba, ImageFormat, Rgba32FImage};
 use image::buffer::ConvertBuffer;
 use std::path::{Path};
 
-pub(crate) fn execute(paths: Vec<String>, width: u32, height: u32) {
+pub(crate) fn execute(paths: Vec<String>) {
     let mut images: Vec<Rgba32FImage> = Vec::new();
     let mut out_path: &Path = Path::new("./out/pack.png");
 
     let mut use_alpha = false;
 
+    let mut set_dim = false;
+    let mut width = 1024;
+    let mut height = 1024;
+
     // arguments 0-3 are channels RGBA
     // argument 4 is output
     for i in 0..paths.len() {
         if i < 4 {
-            if paths[i].eq("_") { // If we're given a placeholder, input a blank image instead
+            if paths[i].eq("_") { // If we're given a placeholder, input a blank image instead, with dimensions implied from previous inputs
                 images.push(image::DynamicImage::new_rgba32f(width, height).into_rgba32f());
             } else {
                 println!("...loading {}", paths[i]);
-                images.push(image::open(paths[i].as_str()).unwrap().into_rgba32f());
+                let img = image::open(paths[i].as_str()).unwrap().into_rgba32f();
+
+                if !set_dim { // If this is our first input image, store its dimensions
+                    (width, height) = img.dimensions();
+                    set_dim = true
+                } else { // Otherwise, make sure given image fits the dimensions of the parent
+                    let (w, h) = img.dimensions();
+                    assert_eq!(width, w, "Input image widths did not match");
+                    assert_eq!(height, h, "Input image heights did not match");
+                }
+
+                images.push(img);
+
                 if i == 3 {
                     use_alpha = true;
                 }
@@ -30,38 +46,22 @@ pub(crate) fn execute(paths: Vec<String>, width: u32, height: u32) {
     }
 
     // Perform channel packing
-    let output = channel_pack_internal(images, use_alpha);
+    let output = channel_pack_internal(images, use_alpha, width, height);
 
-    // When outputting image, we compress to 16-bit channels, as we need a high range of value
+    // When outputting image, we compress to 8-bit channels
+    // TODO: flag for using 16-bit channels in case we need a high range of value
     // ...but most programs don't work in 32-bit, so we don't need that extreme either
     if use_alpha { // Output image with an alpha channel, if one was used
-        let output: ImageBuffer<Rgba<u16>, Vec<u16>> = output.convert();
+        let output: ImageBuffer<Rgba<u8>, Vec<u8>> = output.convert();
         output.save_with_format(out_path, ImageFormat::Png).unwrap();
     } else { // Otherwise, output without alpha
-        let output: ImageBuffer<Rgb<u16>, Vec<u16>> = output.convert();
+        let output: ImageBuffer<Rgb<u8>, Vec<u8>> = output.convert();
         output.save_with_format(out_path, ImageFormat::Png).unwrap();
     }
 }
 
 // Pack channels of an image
-fn channel_pack_internal(channel_data: Vec<Rgba32FImage>, use_alpha: bool) -> ImageBuffer<Rgba<f32>, Vec<f32>> {
-    let mut width= 1024;
-    let mut height = 1024;
-    for i in 0..channel_data.len() {
-        let (x1, y1) = channel_data[i].dimensions();
-        if i == 0 { // Define image bounds
-            width = x1;
-            height = y1;
-        } else { // Make sure all image dimensions match up
-            let (x2, y2) = channel_data[i - 1].dimensions();
-            assert_eq!(x1, x2, "Input image widths did not match");
-            assert_eq!(y2, y2, "Input image heights did not match");
-        }
-    }
-    // Lock width and height
-    let width = width;
-    let height = height;
-
+fn channel_pack_internal(channel_data: Vec<Rgba32FImage>, use_alpha: bool, width: u32, height: u32) -> ImageBuffer<Rgba<f32>, Vec<f32>> {
     // Prep new image
     let mut imgbuf = image::ImageBuffer::new(width, height);
     // Fill out pixels of new image with data from inputs

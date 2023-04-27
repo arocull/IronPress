@@ -27,7 +27,7 @@ fn main() {
     if command.eq("mask") {
         mask_sum::execute(args_packed, 2048, 2048);
     } else if command.eq("pack") {
-        channel_pack::execute(args_packed, 2048, 2048);
+        channel_pack::execute(args_packed);
     } else if command.eq("flipnorm") {
         channel_flip::execute(args_packed);
     }
