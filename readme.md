@@ -11,7 +11,7 @@ Use underscores (`_`) as placeholder textures.
 - `pack [channel_r] [channel_g] [channel_b] [channel_a] [output]`
   - Packs multiple texture channels into one. Useful for PBR maps.
   - Only the Red, Green, Blue, and Alpha channel are sampled from their respective texture inputs.
-  - Stores as **RGBA16** with alpha, or **RGB16** if no alpha is provided.
+  - Stores as **RGBA8** with alpha, or **RGB8** if no alpha is provided.
 - `flipnorm [texture] [output]`
   - Flips the green channel of a given texture.
   - Used to convert between DirectX and OpenGL normal maps.
