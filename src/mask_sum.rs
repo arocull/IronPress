@@ -1,7 +1,6 @@
 extern crate image;
 
-use std::env;
-use image::{ImageBuffer, DynamicImage, Luma, ImageFormat};
+use image::{Luma, ImageFormat};
 use image::buffer::ConvertBuffer;
 use std::path::{Path};
 use std::process::exit;
@@ -41,7 +40,7 @@ pub(crate) fn execute(paths: Vec<String>, width: u32, height: u32) {
         sum += overlay * mask;
 
         // println!("mask {0} | {1}\toverlay {2} | {3}\ttotal {4}", images[0].get_pixel(x, y).0[0], mask, images[1].get_pixel(x, y).0[0], overlay, mask * overlay);
-        *pixel = image::Luma([((overlay * mask) * (u16::MAX as f64)) as u16]);
+        *pixel = Luma([((overlay * mask) * (u16::MAX as f64)) as u16]);
     }
 
     println!("Resulting power is {}", sum / weight);

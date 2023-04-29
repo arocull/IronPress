@@ -1,7 +1,6 @@
 extern crate image;
 
-use std::env;
-use image::{ImageBuffer, DynamicImage, Rgb, Rgba, ImageFormat, Rgba32FImage};
+use image::{ImageBuffer, Rgb, Rgba, ImageFormat, Rgba32FImage};
 use image::buffer::ConvertBuffer;
 use std::path::{Path};
 
@@ -74,7 +73,7 @@ fn channel_pack_internal(channel_data: Vec<Rgba32FImage>, use_alpha: bool, width
             a = 255 as u8;
         }
 
-        *pixel = image::Rgba([r, g, b, a.into()]);
+        *pixel = Rgba([r, g, b, a.into()]);
     }
 
     return imgbuf;

@@ -1,9 +1,9 @@
 extern crate image;
 
-use std::env;
-use image::{ImageBuffer, DynamicImage, Rgb, Rgba, ImageFormat};
+use image::{ImageBuffer, Rgb, ImageFormat};
 use image::buffer::ConvertBuffer;
 use std::path::{Path};
+use crate::util;
 use crate::util::Rgb16Image;
 
 pub(crate) fn execute(paths: Vec<String>) {
@@ -18,7 +18,7 @@ pub(crate) fn execute(paths: Vec<String>) {
                 println!("Placeholders not allowed for channel flipping!");
                 return;
             }
-            texture = image::open(paths[i].as_str()).unwrap().into_rgb16();
+            texture = util::load_image(paths[i].as_str()).into_rgb16();
         } else if i == 1 {
             out_path = Path::new(paths[i].as_str());
         }
@@ -31,12 +31,12 @@ pub(crate) fn execute(paths: Vec<String>) {
 
 // Pack channels of an image
 fn execute_internal(texture: Rgb16Image) -> ImageBuffer<Rgb<u16>, Vec<u16>> {
-    let (width, height) = texture.dimensions();
+    let (_width, _height) = texture.dimensions();
 
     // Prep new image
     let mut imgbuf = image::ImageBuffer::from(texture);
     // Fill out pixels of new image with data from inputs
-    for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
+    for (_x, _y, pixel) in imgbuf.enumerate_pixels_mut() {
         *pixel = Rgb([pixel[0], u16::MAX - pixel[1], pixel[2]]);
     }
 

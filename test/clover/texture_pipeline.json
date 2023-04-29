@@ -1,5 +1,6 @@
 {
-    "bake": {
+    "out": "out",
+    "baking": {
         "samples": 1024
     },
     "materials": {
