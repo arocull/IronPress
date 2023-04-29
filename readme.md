@@ -16,5 +16,3 @@ Use underscores (`_`) as placeholder textures.
   - Flips the green channel of a given texture.
   - Used to convert between DirectX and OpenGL normal maps.
   - Stores as **RGB16**.
-
-![](assets/base.png)

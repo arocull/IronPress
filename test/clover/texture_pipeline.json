@@ -1,0 +1,37 @@
+{
+    "bake": {
+        "samples": 1024
+    },
+    "materials": {
+        "mat_body": {
+            "res_base": 4096,
+            "res_out": 2048,
+            "channels": [
+                "basecolor",
+                "ao",
+                "roughness",
+                "metallic",
+                "normal"
+            ]
+        },
+        "mat_sunhat": {
+            "res_base": 2048,
+            "res_out": 1024,
+            "channels": [
+                "basecolor",
+                "ao",
+                "roughness",
+                "metallic",
+                "normal"
+            ]
+        },
+        "mat_eye": {
+            "res_base": 1024,
+            "res_out": 512,
+            "channels": [
+                "basecolor",
+                "normal"
+            ]
+        }
+    }
+}
