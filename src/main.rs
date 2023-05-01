@@ -2,11 +2,13 @@ extern crate image;
 
 use std::env;
 use std::fs;
-use std::fs::read_to_string;
+use std::fs::{File, read_to_string};
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
-use image::{DynamicImage, GenericImageView, ImageBuffer, ImageFormat, imageops, Rgb, Rgba32FImage};
+use image::{ColorType, DynamicImage, EncodableLayout, GenericImageView, ImageBuffer, ImageEncoder, ImageFormat, imageops, Rgb, Rgba32FImage};
 use image::buffer::ConvertBuffer;
+use image::codecs::png;
+use image::codecs::png::{CompressionType, FilterType};
 use crate::channel_flip::flip_green;
 use crate::channel_pack::channel_pack_images;
 
@@ -70,6 +72,15 @@ fn pipeline_resize_if_necessary(img: DynamicImage, width: u32, height: u32) -> D
     return  img;
 }
 
+// Saves an image buffer to the given path, using a specific color format, at the best compression
+fn pipeline_compressed_save(path: &Path, buffer: &[u8], width: u32, height: u32, format: ColorType) {
+    let f = File::create(path).unwrap(); // Create a file at the given path
+    let writer = BufWriter::new(f); // Create a writer buffer to it
+    // Set up a PNG encoder on top of the buffer, and attempt to maximize compression (for space efficiency)
+    let encoder = png::PngEncoder::new_with_quality(writer, CompressionType::Best, FilterType::Adaptive);
+    encoder.write_image(buffer, width, height, format).unwrap(); // Finally, write out the image
+}
+
 fn pipeline(config_file: &Path, _args: Vec<String>) {
     let dir = config_file.parent().unwrap(); // Get working directory
 
@@ -98,8 +109,6 @@ fn pipeline(config_file: &Path, _args: Vec<String>) {
     // Check if we're using DirectX normals--if true, flip green channels
     let flip_normals = config.has_key("flip_normals") && config["flip_normals"].as_bool().unwrap();
 
-    // let codec = image::codecs::png::PngEncoder::new_with_quality(, image::codecs::png::CompressionType::Best, image::codecs::png::FilterType::Adaptive);
-
     // Iterate through all materials
     for (matname, mat) in mats {
         let channels = mat["channels"].clone();
@@ -112,8 +121,8 @@ fn pipeline(config_file: &Path, _args: Vec<String>) {
             let basecolor = pipeline_resize_if_necessary(util::load_image(img_path.as_path()), res, res).into_rgb8();
             let img_path = pipeline_img_path(outdir, matname, "basecolor", "png");
             println!("\tExporting basecolor to {0}", img_path.to_str().unwrap());
-            basecolor.save_with_format(img_path, ImageFormat::Png).unwrap();
-
+            // basecolor.save_with_format(img_path, ImageFormat::Png).unwrap();
+            pipeline_compressed_save(img_path.as_path(), basecolor.as_bytes(), res, res, ColorType::Rgb8);
         }
 
         // Normal map
@@ -130,7 +139,8 @@ fn pipeline(config_file: &Path, _args: Vec<String>) {
 
             let img_path = pipeline_img_path(outdir, matname, "normal", "png");
             println!("\tExporting normal map to {0}", img_path.to_str().unwrap());
-            normal.save_with_format(img_path, ImageFormat::Png).unwrap();
+            // normal.save_with_format(img_path, ImageFormat::Png).unwrap();
+            pipeline_compressed_save(img_path.as_path(), normal.as_bytes(), res, res, ColorType::Rgb16);
         }
 
         // ORM (Occlusion, Roughness, Metallic)
@@ -186,6 +196,9 @@ fn pipeline(config_file: &Path, _args: Vec<String>) {
             let orm: ImageBuffer<Rgb<u8>, Vec<u8>> = orm_raw.convert(); // Convert to RGB8
             println!("\tExporting ORM map to {0}", out_path.to_str().unwrap());
             orm.save_with_format(out_path.as_path(), ImageFormat::Png).unwrap(); // Save out file
+
+            // orm.save_with_format(out_path, ImageFormat::Png).unwrap();
+            pipeline_compressed_save(out_path.as_path(), orm.as_bytes(), res, res, ColorType::Rgb8);
         }
     }
 }
