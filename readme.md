@@ -16,3 +16,6 @@ Use underscores (`_`) as placeholder textures.
   - Flips the green channel of a given texture.
   - Used to convert between DirectX and OpenGL normal maps.
   - Stores as **RGB16**.
+
+If a `json` file is fed as the first argument, the program runs a pipeline based off the given configuration.
+See [the Clover Pipeline test configuration](test/clover/texture_pipeline.json) for an example.
