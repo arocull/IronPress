@@ -1,14 +1,13 @@
 extern crate image;
 
 use std::env;
-use image::{ImageBuffer, DynamicImage, Rgb, Rgba, ImageFormat, Rgba32FImage};
-use image::buffer::ConvertBuffer;
 use std::path::{Path};
 
 mod channel_pack;
 mod channel_flip;
 mod mask_sum;
 mod util;
+mod pipeline;
 
 fn main() {
     let args: Vec<_> = env::args().collect();
@@ -21,6 +20,12 @@ fn main() {
     let mut args_packed: Vec<String> = Vec::new();
     for i in 2..args.len() {
         args_packed.push(args[i].clone());
+    }
+
+    if command.ends_with(".json") {
+        // Perform pipeline
+        pipeline::from_file(Path::new(&command), args_packed);
+        return;
     }
 
     // Perform command based off argument
