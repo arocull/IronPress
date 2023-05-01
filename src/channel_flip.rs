@@ -25,12 +25,12 @@ pub(crate) fn execute(paths: Vec<String>) {
     }
 
     // Perform manipulation and save out
-    let output: ImageBuffer<Rgb<u16>, Vec<u16>> = execute_internal(texture).convert();
+    let output: ImageBuffer<Rgb<u16>, Vec<u16>> = flip_green(texture).convert();
     output.save_with_format(out_path, ImageFormat::Png).unwrap();
 }
 
 // Pack channels of an image
-fn execute_internal(texture: Rgb16Image) -> ImageBuffer<Rgb<u16>, Vec<u16>> {
+pub(crate) fn flip_green(texture: Rgb16Image) -> ImageBuffer<Rgb<u16>, Vec<u16>> {
     let (_width, _height) = texture.dimensions();
 
     // Prep new image

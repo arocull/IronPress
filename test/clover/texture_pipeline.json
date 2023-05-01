@@ -13,6 +13,7 @@
                 "basecolor",
                 "ao",
                 "roughness",
+                "metallic",
                 "normal"
             ]
         },

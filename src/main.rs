@@ -1,13 +1,13 @@
 extern crate image;
 
 use std::env;
-use std::env::join_paths;
 use std::fs;
 use std::fs::read_to_string;
-use std::ops::Deref;
+use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use image::{DynamicImage, GenericImageView, ImageBuffer, ImageFormat, imageops, Rgb, Rgba32FImage};
 use image::buffer::ConvertBuffer;
+use crate::channel_flip::flip_green;
 use crate::channel_pack::channel_pack_images;
 
 mod channel_pack;
@@ -70,7 +70,7 @@ fn pipeline_resize_if_necessary(img: DynamicImage, width: u32, height: u32) -> D
     return  img;
 }
 
-fn pipeline(config_file: &Path, args: Vec<String>) {
+fn pipeline(config_file: &Path, _args: Vec<String>) {
     let dir = config_file.parent().unwrap(); // Get working directory
 
     // Load and parse configuration
@@ -98,6 +98,8 @@ fn pipeline(config_file: &Path, args: Vec<String>) {
     // Check if we're using DirectX normals--if true, flip green channels
     let flip_normals = config.has_key("flip_normals") && config["flip_normals"].as_bool().unwrap();
 
+    // let codec = image::codecs::png::PngEncoder::new_with_quality(, image::codecs::png::CompressionType::Best, image::codecs::png::FilterType::Adaptive);
+
     // Iterate through all materials
     for (matname, mat) in mats {
         let channels = mat["channels"].clone();
@@ -111,13 +113,21 @@ fn pipeline(config_file: &Path, args: Vec<String>) {
             let img_path = pipeline_img_path(outdir, matname, "basecolor", "png");
             println!("\tExporting basecolor to {0}", img_path.to_str().unwrap());
             basecolor.save_with_format(img_path, ImageFormat::Png).unwrap();
+
         }
 
         // Normal map
         if channels.contains("normal") {
             let img_path = pipeline_img_path(indir, matname, "normal", "png");
             println!("Loading normal map from {0}", img_path.to_str().unwrap());
-            let normal = pipeline_resize_if_necessary(util::load_image(img_path.as_path()), res, res).into_rgb16();
+
+            let mut normal = pipeline_resize_if_necessary(util::load_image(img_path.as_path()), res, res).into_rgb16();
+            if flip_normals {
+                println!("\tFlipping normal map");
+                normal = flip_green(normal);
+            }
+            let normal = normal; // Lock normal so it can no longer be edited
+
             let img_path = pipeline_img_path(outdir, matname, "normal", "png");
             println!("\tExporting normal map to {0}", img_path.to_str().unwrap());
             normal.save_with_format(img_path, ImageFormat::Png).unwrap();
@@ -130,35 +140,43 @@ fn pipeline(config_file: &Path, args: Vec<String>) {
             let out_path = pipeline_img_path(outdir, matname, "orm", "png");
 
             // Find all corresponding images, or default to a blank one
-            if channels.contains("ao") {
+            // TODO: Remove duplicate code by packing into functions
+
+            // Ambient Occlusion
+            let ao_path = pipeline_img_path(indir, matname, "ao", "png");
+            if channels.contains("ao") && ao_path.exists() {
                 println!("\tLoading Ambient Occlusion");
-                let img_path = pipeline_img_path(indir, matname, "ao", "png");
-                let map = pipeline_resize_if_necessary(util::load_image(img_path.as_path()), res, res).into_rgba32f();
+                let map = pipeline_resize_if_necessary(util::load_image(ao_path.as_path()), res, res).into_rgba32f();
                 images.push(map);
             } else {
                 println!("\tUsing default Ambient Occlusion map");
                 // TODO: Fill this image with white instead of black
                 images.push(image::DynamicImage::new_rgba32f(res, res).into_rgba32f());
             }
-            if channels.contains("roughness") {
+
+            // Roughness
+            let roughness_path = pipeline_img_path(indir, matname, "roughness", "png");
+            if channels.contains("roughness") && roughness_path.exists() {
                 println!("\tLoading Roughness");
-                let img_path = pipeline_img_path(indir, matname, "roughness", "png");
-                let map = pipeline_resize_if_necessary(util::load_image(img_path.as_path()), res, res).into_rgba32f();
+                let map = pipeline_resize_if_necessary(util::load_image(roughness_path.as_path()), res, res).into_rgba32f();
                 images.push(map);
             } else {
                 println!("\tUsing default Roughness map");
                 // TODO: Fill this image with grey instead of black
                 images.push(image::DynamicImage::new_rgba32f(res, res).into_rgba32f());
             }
-            if channels.contains("metallic") {
+
+            // Metallic
+            let metallic_path = pipeline_img_path(indir, matname, "metallic", "png");
+            if channels.contains("metallic") && metallic_path.exists() {
                 println!("\tLoading Metallic");
-                let img_path = pipeline_img_path(indir, matname, "metallic", "png");
-                let map = pipeline_resize_if_necessary(util::load_image(img_path.as_path()), res, res).into_rgba32f();
+                let map = pipeline_resize_if_necessary(util::load_image(metallic_path.as_path()), res, res).into_rgba32f();
                 images.push(map);
             } else {
                 println!("\tUsing default Metallic map");
                 images.push(image::DynamicImage::new_rgba32f(res, res).into_rgba32f());
             }
+
             // Push blank image for alpha
             images.push(image::DynamicImage::new_rgba32f(res, res).into_rgba32f());
 
