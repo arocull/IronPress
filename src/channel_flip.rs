@@ -18,7 +18,7 @@ pub(crate) fn execute(paths: Vec<String>) {
                 println!("Placeholders not allowed for channel flipping!");
                 return;
             }
-            texture = util::load_image(paths[i].as_str()).into_rgb16();
+            texture = util::load_image(Path::new(paths[i].as_str())).into_rgb16();
         } else if i == 1 {
             out_path = Path::new(paths[i].as_str());
         }

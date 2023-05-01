@@ -1,7 +1,9 @@
 {
     "out": "out",
-    "baking": {
-        "samples": 1024
+    "in": "textures",
+    "flip_normals": false,
+    "globals": {
+        "baking_samples": 1024
     },
     "materials": {
         "mat_body": {
