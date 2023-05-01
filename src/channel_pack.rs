@@ -45,7 +45,7 @@ pub(crate) fn execute(paths: Vec<String>) {
     }
 
     // Perform channel packing
-    let output = channel_pack_internal(images, use_alpha, width, height);
+    let output = channel_pack_images(images, use_alpha, width, height);
 
     // When outputting image, we compress to 8-bit channels
     // TODO: flag for using 16-bit channels in case we need a high range of value
@@ -60,7 +60,7 @@ pub(crate) fn execute(paths: Vec<String>) {
 }
 
 // Pack channels of an image
-fn channel_pack_internal(channel_data: Vec<Rgba32FImage>, use_alpha: bool, width: u32, height: u32) -> ImageBuffer<Rgba<f32>, Vec<f32>> {
+pub(crate) fn channel_pack_images(channel_data: Vec<Rgba32FImage>, use_alpha: bool, width: u32, height: u32) -> ImageBuffer<Rgba<f32>, Vec<f32>> {
     // Prep new image
     let mut imgbuf = image::ImageBuffer::new(width, height);
     // Fill out pixels of new image with data from inputs

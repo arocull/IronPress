@@ -4,8 +4,11 @@ use std::env;
 use std::env::join_paths;
 use std::fs;
 use std::fs::read_to_string;
-use std::path::{Path};
-use image::{DynamicImage, GenericImageView, imageops};
+use std::ops::Deref;
+use std::path::{Path, PathBuf};
+use image::{DynamicImage, GenericImageView, ImageBuffer, ImageFormat, imageops, Rgb, Rgba32FImage};
+use image::buffer::ConvertBuffer;
+use crate::channel_pack::channel_pack_images;
 
 mod channel_pack;
 mod channel_flip;
@@ -41,10 +44,15 @@ fn main() {
     }
 }
 
-fn pipeline_img_path(directory: &Path, material_name: string, data: string, format: string) -> &Path {
-    let img_name = concat!(material_name, "_", data, ".", format);
-    let path_buf = directory.join(Path::new(&img_name));
-    return path_buf.as_path();
+fn pipeline_img_path(directory: &Path, material_name: &str, data: &str, format: &str) -> PathBuf {
+    // Concatenate strings together
+    let mut owned_str: String = material_name.clone().to_string();
+    owned_str.push_str("_");
+    owned_str.push_str(data);
+    owned_str.push_str(".");
+    owned_str.push_str(format);
+
+    return directory.join(Path::new(owned_str.as_str()));
 }
 
 fn pipeline_resize_if_necessary(img: DynamicImage, width: u32, height: u32) -> DynamicImage {
@@ -83,7 +91,7 @@ fn pipeline(config_file: &Path, args: Vec<String>) {
         fs::create_dir_all(indir).unwrap();
     }
 
-    println!("Hello world! {0}", outdir.to_str().unwrap());
+    println!("Successfully loaded config at {0}", config_file.to_str().unwrap());
 
     let mats = config["materials"].entries();
 
@@ -95,15 +103,71 @@ fn pipeline(config_file: &Path, args: Vec<String>) {
         let channels = mat["channels"].clone();
         let res = mat["res_out"].as_u32().unwrap();
 
+        // Basecolor map
         if channels.contains("basecolor") {
-            let basecolor_path = pipeline_img_path(indir, matname, "basecolor", "png");
-            let basecolor = pipeline_resize_if_necessary(util::load_image(basecolor_path), res, res);
-            
+            let img_path = pipeline_img_path(indir, matname, "basecolor", "png");
+            println!("Loading basecolor from {0}", img_path.to_str().unwrap());
+            let basecolor = pipeline_resize_if_necessary(util::load_image(img_path.as_path()), res, res).into_rgb8();
+            let img_path = pipeline_img_path(outdir, matname, "basecolor", "png");
+            println!("\tExporting basecolor to {0}", img_path.to_str().unwrap());
+            basecolor.save_with_format(img_path, ImageFormat::Png).unwrap();
         }
 
-        // Load textures for given material
-        // scale textures according to configuration
-        // then combine as needed (ORM pass)
-        // Save textures in corresponding formats in output directory
+        // Normal map
+        if channels.contains("normal") {
+            let img_path = pipeline_img_path(indir, matname, "normal", "png");
+            println!("Loading normal map from {0}", img_path.to_str().unwrap());
+            let normal = pipeline_resize_if_necessary(util::load_image(img_path.as_path()), res, res).into_rgb16();
+            let img_path = pipeline_img_path(outdir, matname, "normal", "png");
+            println!("\tExporting normal map to {0}", img_path.to_str().unwrap());
+            normal.save_with_format(img_path, ImageFormat::Png).unwrap();
+        }
+
+        // ORM (Occlusion, Roughness, Metallic)
+        if channels.contains("ao") || channels.contains("roughness") || channels.contains("metallic") {
+            println!("Preparing ORM map...");
+            let mut images: Vec<Rgba32FImage> = Vec::new();
+            let out_path = pipeline_img_path(outdir, matname, "orm", "png");
+
+            // Find all corresponding images, or default to a blank one
+            if channels.contains("ao") {
+                println!("\tLoading Ambient Occlusion");
+                let img_path = pipeline_img_path(indir, matname, "ao", "png");
+                let map = pipeline_resize_if_necessary(util::load_image(img_path.as_path()), res, res).into_rgba32f();
+                images.push(map);
+            } else {
+                println!("\tUsing default Ambient Occlusion map");
+                // TODO: Fill this image with white instead of black
+                images.push(image::DynamicImage::new_rgba32f(res, res).into_rgba32f());
+            }
+            if channels.contains("roughness") {
+                println!("\tLoading Roughness");
+                let img_path = pipeline_img_path(indir, matname, "roughness", "png");
+                let map = pipeline_resize_if_necessary(util::load_image(img_path.as_path()), res, res).into_rgba32f();
+                images.push(map);
+            } else {
+                println!("\tUsing default Roughness map");
+                // TODO: Fill this image with grey instead of black
+                images.push(image::DynamicImage::new_rgba32f(res, res).into_rgba32f());
+            }
+            if channels.contains("metallic") {
+                println!("\tLoading Metallic");
+                let img_path = pipeline_img_path(indir, matname, "metallic", "png");
+                let map = pipeline_resize_if_necessary(util::load_image(img_path.as_path()), res, res).into_rgba32f();
+                images.push(map);
+            } else {
+                println!("\tUsing default Metallic map");
+                images.push(image::DynamicImage::new_rgba32f(res, res).into_rgba32f());
+            }
+            // Push blank image for alpha
+            images.push(image::DynamicImage::new_rgba32f(res, res).into_rgba32f());
+
+            // Pack channels
+            println!("Processing ORM map...");
+            let orm_raw = channel_pack_images(images, false, res, res);
+            let orm: ImageBuffer<Rgb<u8>, Vec<u8>> = orm_raw.convert(); // Convert to RGB8
+            println!("\tExporting ORM map to {0}", out_path.to_str().unwrap());
+            orm.save_with_format(out_path.as_path(), ImageFormat::Png).unwrap(); // Save out file
+        }
     }
 }
