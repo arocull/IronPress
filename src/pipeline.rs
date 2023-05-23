@@ -123,5 +123,17 @@ pub(crate) fn from_file(config_file: &Path, _args: Vec<String>) {
             
             util::compressed_save(out_path.as_path(), orm.as_bytes(), res, res, ColorType::Rgb8);
         }
+
+        for member in channels.members() {
+            let mem = member.as_str().unwrap();
+            if mem.starts_with("mask") || mem.starts_with("opacity") { // Export masks
+                println!("Found mask {0}, loading...", mem);
+                let img_path = util::path_material_map(indir, matname, mem, "png");
+                let map = util::auto_resize(util::load_image(img_path.as_path()), res, res).into_luma8();
+                let img_path = util::path_material_map(outdir, matname, mem, "png");
+                println!("\tExporting mask {0}...", mem);
+                util::compressed_save(img_path.as_path(), map.as_bytes(), res, res, ColorType::L8);
+            }
+        }
     }
 }
