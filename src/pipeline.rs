@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::fs;
 use std::fs::{read_to_string};
 use std::path::{Path};
@@ -44,10 +45,19 @@ pub(crate) fn from_file(config_file: &Path, _args: Vec<String>) {
         if channels.contains("basecolor") {
             let img_path = util::path_material_map(indir, matname, "basecolor", "png");
             println!("Loading basecolor from {0}", img_path.to_str().unwrap());
-            let basecolor = util::auto_resize(util::load_image(img_path.as_path()), res, res).into_rgb8();
+            let (basecolor_img, width, height) = util::auto_resize(util::load_image(img_path.as_path()), res, res);
+
             let img_path = util::path_material_map(outdir, matname, "basecolor", "png");
             println!("\tExporting basecolor to {0}", img_path.to_str().unwrap());
-            util::compressed_save(img_path.as_path(), basecolor.as_bytes(), res, res, ColorType::Rgb8);
+
+            // If we have an alpha channel, export to RGBA8
+            if channels.contains("alpha") {
+                // TODO: ...but if find a separate, alpha image, use that instead
+
+                util::compressed_save(img_path.as_path(), basecolor_img.into_rgba8().as_bytes(), width, height, ColorType::Rgba8);
+            } else { // Otherwise, just export to RGB8
+                util::compressed_save(img_path.as_path(), basecolor_img.into_rgb8().as_bytes(), width, height, ColorType::Rgb8);
+            }
         }
 
         // Normal map
@@ -55,7 +65,10 @@ pub(crate) fn from_file(config_file: &Path, _args: Vec<String>) {
             let img_path = util::path_material_map(indir, matname, "normal", "png");
             println!("Loading normal map from {0}", img_path.to_str().unwrap());
 
-            let mut normal = util::auto_resize(util::load_image(img_path.as_path()), res, res).into_rgb16();
+            let (normal, width, height) = util::auto_resize(util::load_image(img_path.as_path()), res, res);
+
+            let mut normal = normal.into_rgb16();
+
             if flip_normals {
                 println!("\tFlipping normal map");
                 normal = flip_green(normal);
@@ -64,7 +77,7 @@ pub(crate) fn from_file(config_file: &Path, _args: Vec<String>) {
 
             let img_path = util::path_material_map(outdir, matname, "normal", "png");
             println!("\tExporting normal map to {0}", img_path.to_str().unwrap());
-            util::compressed_save(img_path.as_path(), normal.as_bytes(), res, res, ColorType::Rgb16);
+            util::compressed_save(img_path.as_path(), normal.as_bytes(), width, height, ColorType::Rgb16);
         }
 
         // ORM (Occlusion, Roughness, Metallic)
@@ -73,6 +86,9 @@ pub(crate) fn from_file(config_file: &Path, _args: Vec<String>) {
             let mut images: Vec<Rgba32FImage> = Vec::new();
             let out_path = util::path_material_map(outdir, matname, "orm", "png");
 
+            let mut width = res;
+            let mut height = res;
+
             // Find all corresponding images, or default to a blank one
             // TODO: Remove duplicate code by packing into functions
 
@@ -80,19 +96,31 @@ pub(crate) fn from_file(config_file: &Path, _args: Vec<String>) {
             let ao_path = util::path_material_map(indir, matname, "ao", "png");
             if channels.contains("ao") && ao_path.exists() {
                 println!("\tLoading Ambient Occlusion");
-                let map = util::auto_resize(util::load_image(ao_path.as_path()), res, res).into_rgba32f();
+                let (map, new_width, new_height) = util::auto_resize(util::load_image(ao_path.as_path()), res, res);
+
+                // store dimensions
+                width = min(width, new_width);
+                height = min(height, new_height);
+                // then convert
+                let map = map.into_rgba32f();
                 images.push(map);
             } else {
                 println!("\tUsing default Ambient Occlusion map");
                 // TODO: Fill this image with white instead of black
-                images.push(image::DynamicImage::new_rgba32f(res, res).into_rgba32f());
+                images.push(image::DynamicImage::new_rgba32f(width, height).into_rgba32f());
             }
 
             // Roughness
             let roughness_path = util::path_material_map(indir, matname, "roughness", "png");
             if channels.contains("roughness") && roughness_path.exists() {
                 println!("\tLoading Roughness");
-                let map = util::auto_resize(util::load_image(roughness_path.as_path()), res, res).into_rgba32f();
+                let (map, new_width, new_height) = util::auto_resize(util::load_image(roughness_path.as_path()), res, res);
+
+                // store dimensions
+                width = min(width, new_width);
+                height = min(height, new_height);
+                // then convert
+                let map = map.into_rgba32f();
                 images.push(map);
             } else {
                 println!("\tUsing default Roughness map");
@@ -104,7 +132,13 @@ pub(crate) fn from_file(config_file: &Path, _args: Vec<String>) {
             let metallic_path = util::path_material_map(indir, matname, "metallic", "png");
             if channels.contains("metallic") && metallic_path.exists() {
                 println!("\tLoading Metallic");
-                let map = util::auto_resize(util::load_image(metallic_path.as_path()), res, res).into_rgba32f();
+                let (map, new_width, new_height) = util::auto_resize(util::load_image(metallic_path.as_path()), res, res);
+
+                // store dimensions
+                width = min(width, new_width);
+                height = min(height, new_height);
+                // then convert
+                let map = map.into_rgba32f();
                 images.push(map);
             } else {
                 println!("\tUsing default Metallic map");
@@ -116,23 +150,28 @@ pub(crate) fn from_file(config_file: &Path, _args: Vec<String>) {
 
             // Pack channels
             println!("Processing ORM map...");
-            let orm_raw = channel_pack_images(images, false, res, res);
+            let orm_raw = channel_pack_images(images, false, width, height);
             let orm: ImageBuffer<Rgb<u8>, Vec<u8>> = orm_raw.convert(); // Convert to RGB8
             println!("\tExporting ORM map to {0}", out_path.to_str().unwrap());
             orm.save_with_format(out_path.as_path(), ImageFormat::Png).unwrap(); // Save out file
             
-            util::compressed_save(out_path.as_path(), orm.as_bytes(), res, res, ColorType::Rgb8);
+            util::compressed_save(out_path.as_path(), orm.as_bytes(), width, height, ColorType::Rgb8);
         }
 
         for member in channels.members() {
             let mem = member.as_str().unwrap();
             if mem.starts_with("mask") || mem.starts_with("opacity") { // Export masks
-                println!("Found mask {0}, loading...", mem);
                 let img_path = util::path_material_map(indir, matname, mem, "png");
-                let map = util::auto_resize(util::load_image(img_path.as_path()), res, res).into_luma8();
+                println!("Found mask {0}, loading...", img_path.to_str().unwrap());
+
+                // Load map and dynamically resize it
+                let (map, width, height) = util::auto_resize(util::load_image(img_path.as_path()), res, res);
+                let map = map.into_luma8(); // Convert map into grayscale image
+
                 let img_path = util::path_material_map(outdir, matname, mem, "png");
-                println!("\tExporting mask {0}...", mem);
-                util::compressed_save(img_path.as_path(), map.as_bytes(), res, res, ColorType::L8);
+                println!("\tExporting mask {0}...", img_path.to_str().unwrap());
+
+                util::compressed_save(img_path.as_path(), map.as_bytes(), width, height, ColorType::L8);
             }
         }
     }

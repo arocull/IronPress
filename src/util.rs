@@ -1,5 +1,6 @@
 extern crate image;
 
+use std::cmp::max;
 use std::path::{Path, PathBuf};
 use image::{ColorType, DynamicImage, GenericImageView, ImageBuffer, ImageEncoder, imageops, Luma, Rgb};
 use std::fs::{File};
@@ -19,19 +20,27 @@ pub(crate) fn int16_to_float64(a: u16) -> f64 {
     return (a as f64) / (u16::MAX as f64);
 }
 
-pub(crate) fn auto_resize(img: DynamicImage, width: u32, height: u32) -> DynamicImage {
+pub(crate) fn auto_resize(img: DynamicImage, mut width: u32, mut height: u32) -> (DynamicImage, u32, u32) {
     let (dim_x, dim_y) = img.dimensions();
 
     // Pick resizing filter based off of what we're doing, upscaling versus downscaling
     // https://stackoverflow.com/questions/384991/what-is-the-best-image-downscaling-algorithm-quality-wise
 
-    if dim_x > width || dim_y > height { // If we're upscaling an image, use Catmull Rom
-        return img.resize(width, height, imageops::FilterType::CatmullRom);
-    } else if dim_x != width || dim_y != height { // If we're downscaling an image, use Lanczos
-        return img.resize(width, height, imageops::FilterType::Lanczos3);
+    // If our image dimensions are not equal, find the ratio between the max values, and scale accordingly
+    if dim_x != dim_y {
+        let scale_factor = max(width, height) as f64 / max(dim_x, dim_y) as f64;
+        width = (dim_x as f64 * scale_factor) as u32;
+        height = (dim_y as f64 * scale_factor) as u32;
+        println!("Scale factor of {0}", scale_factor);
     }
 
-    return  img;
+    if dim_x > width || dim_y > height { // If we're upscaling an image, use Catmull Rom
+        return (img.resize(width, height, imageops::FilterType::CatmullRom), width, height);
+    } else if dim_x != width || dim_y != height { // If we're downscaling an image, use Lanczos
+        return (img.resize(width, height, imageops::FilterType::Lanczos3), width, height);
+    }
+
+    return (img, width, height);
 }
 
 // Saves an image buffer to the given path, using a specific color format, at the best compression
