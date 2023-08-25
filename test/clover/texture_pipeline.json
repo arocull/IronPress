@@ -6,6 +6,23 @@
         "baking_samples": 1024
     },
     "materials": {
+        "mat_fur": {
+            "res_out": 256,
+            "channels": [
+                "mask"
+            ]
+        },
+        "mat_daisy": {
+            "res_base": 2048,
+            "res_out": 512,
+            "channels": [
+                "basecolor",
+                "alpha",
+                "ao",
+                "roughness",
+                "normal"
+            ]
+        },
         "mat_body": {
             "res_base": 4096,
             "res_out": 2048,
@@ -18,6 +35,18 @@
             ]
         },
         "mat_sunhat": {
+            "res_base": 2048,
+            "res_out": 1024,
+            "channels": [
+                "basecolor",
+                "ao",
+                "roughness",
+                "metallic",
+                "normal",
+                "mask"
+            ]
+        },
+        "mat_shears": {
             "res_base": 2048,
             "res_out": 1024,
             "channels": [
