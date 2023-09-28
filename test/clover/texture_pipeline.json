@@ -15,11 +15,10 @@
         "mat_daisy": {
             "res_base": 2048,
             "res_out": 512,
+			"alpha": true,
             "channels": [
                 "basecolor",
-                "alpha",
-                "ao",
-                "roughness",
+                "arm",
                 "normal"
             ]
         },
@@ -28,9 +27,7 @@
             "res_out": 2048,
             "channels": [
                 "basecolor",
-                "ao",
-                "roughness",
-                "metallic",
+                "arm",
                 "normal"
             ]
         },
@@ -39,9 +36,7 @@
             "res_out": 1024,
             "channels": [
                 "basecolor",
-                "ao",
-                "roughness",
-                "metallic",
+                "arm",
                 "normal",
                 "mask"
             ]
@@ -51,9 +46,7 @@
             "res_out": 1024,
             "channels": [
                 "basecolor",
-                "ao",
-                "roughness",
-                "metallic",
+                "arm",
                 "normal"
             ]
         },
