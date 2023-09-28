@@ -16,6 +16,51 @@ pub(crate) fn load_image(path: &Path) -> DynamicImage {
     return image::open(path).unwrap();
 }
 
+pub(crate) fn load_image_adv(path: &Path, res: u32, convert_to: ColorType) -> (DynamicImage, u32, u32) {
+    let img_result = image::open(path);
+    if img_result.as_ref().is_err() {
+        eprintln!("Failed to open image at path {0}, got error {1}", path.to_str().unwrap(), img_result.as_ref().unwrap_err().to_string());
+    }
+    let img = img_result.unwrap();
+
+    let map = match convert_to {
+        ColorType::Rgb8 => DynamicImage::from(img.into_rgb8()),
+        ColorType::Rgb16 => DynamicImage::from(img.into_rgb16()),
+        ColorType::L8 => DynamicImage::from(img.into_luma8()),
+        ColorType::L16 => DynamicImage::from(img.into_luma16()),
+        ColorType::Rgba8 => DynamicImage::from(img.into_rgba8()),
+        ColorType::Rgba16 => DynamicImage::from(img.into_rgba16()),
+        ColorType::Rgb32F => DynamicImage::from(img.into_rgb32f()),
+        ColorType::Rgba32F => DynamicImage::from(img.into_rgba32f()),
+        _ => DynamicImage::from(img.into_rgb8()),
+    };
+
+    return auto_resize(map, res, res);
+}
+
+pub(crate) fn map_to_color(map_name: &str) -> ColorType {
+    return match map_name {
+        "basecolor" => ColorType::Rgb8,
+        "diffuse" => ColorType::Rgb8,
+
+        "basecoloralpha" => ColorType::Rgba8, // If we're including alpha in our basecolor, forcibly include it
+
+        "normal" => ColorType::Rgb16,
+
+        "ao" => ColorType::L8,
+        "occlusion" => ColorType::L8,
+        "roughness" => ColorType::L8,
+        "metallic" => ColorType::L8,
+        "metalness" => ColorType::L8,
+
+        "mask" => ColorType::L8,
+        "opacity" => ColorType::L8,
+        "alpha" => ColorType::L8,
+
+        _ => ColorType::Rgb8,
+    }
+}
+
 pub(crate) fn int16_to_float64(a: u16) -> f64 {
     return (a as f64) / (u16::MAX as f64);
 }
@@ -23,7 +68,7 @@ pub(crate) fn int16_to_float64(a: u16) -> f64 {
 pub(crate) fn auto_resize(img: DynamicImage, mut width: u32, mut height: u32) -> (DynamicImage, u32, u32) {
     let (dim_x, dim_y) = img.dimensions();
 
-    // Pick resizing filter based off of what we're doing, upscaling versus downscaling
+    // Pick resizing filter based off of what we're doing, up-scaling versus downscaling
     // https://stackoverflow.com/questions/384991/what-is-the-best-image-downscaling-algorithm-quality-wise
 
     // If our image dimensions are not equal, find the ratio between the max values, and scale accordingly
@@ -31,10 +76,9 @@ pub(crate) fn auto_resize(img: DynamicImage, mut width: u32, mut height: u32) ->
         let scale_factor = max(width, height) as f64 / max(dim_x, dim_y) as f64;
         width = (dim_x as f64 * scale_factor) as u32;
         height = (dim_y as f64 * scale_factor) as u32;
-        println!("Scale factor of {0}", scale_factor);
     }
 
-    if dim_x > width || dim_y > height { // If we're upscaling an image, use Catmull Rom
+    if dim_x > width || dim_y > height { // If we're up-scaling an image, use Catmull Rom
         return (img.resize(width, height, imageops::FilterType::CatmullRom), width, height);
     } else if dim_x != width || dim_y != height { // If we're downscaling an image, use Lanczos
         return (img.resize(width, height, imageops::FilterType::Lanczos3), width, height);

@@ -1,12 +1,92 @@
 use std::cmp::min;
-use std::fs;
+use std::{fs, path};
 use std::fs::{read_to_string};
 use std::path::{Path};
-use image::{ColorType, EncodableLayout, ImageBuffer, ImageFormat, Rgb, Rgba32FImage};
+use std::time;
+use std::thread;
+use std::thread::JoinHandle;
+use image::{ColorType, DynamicImage, EncodableLayout, ImageBuffer, ImageFormat, Rgb, Rgba32FImage};
 use image::buffer::ConvertBuffer;
-use crate::channel_flip::flip_green;
+use image::error::UnsupportedErrorKind::Color;
+use crate::channel_flip;
 use crate::channel_pack::channel_pack_images;
 use crate::util;
+use crate::util::Rgb16Image;
+
+fn threaded_convert(input_dir: String, outdir: String, material: String, channel: String, resolution: u32, flip_green: bool, has_alpha: bool) -> JoinHandle<()> {
+    return thread::spawn(move || {
+        // Generate file paths from strings (since we can't copy them from threads)
+        let input_dir = path::PathBuf::from(input_dir);
+        let output_dir = path::PathBuf::from(outdir);
+
+        // Load defaults
+        let mut ct = util::map_to_color(channel.as_str());
+        let mut out_img: DynamicImage = image::DynamicImage::new_luma8(resolution, resolution); // Create blank template image
+        let out_path = util::path_material_map(output_dir.as_path(), material.as_str(), channel.as_str(), "png");
+        let mut width: u32 = resolution;
+        let mut height: u32 = resolution;
+
+        // Forcibly include alpha in basecolor pass if we were told to
+        if has_alpha && channel.eq("basecolor") {
+            ct = ColorType::Rgba8;
+        }
+
+        if channel.eq("arm") { // Perform special sequence of actions
+            let base_path_ao = util::path_material_map(input_dir.as_path(), material.as_str(), "ao", "png");
+            let base_path_rough = util::path_material_map(input_dir.as_path(), material.as_str(), "roughness", "png");
+            let base_path_metal = util::path_material_map(input_dir.as_path(), material.as_str(), "metallic", "png");
+
+            // TODO: I don't like storing all these as 32F images. Large and hard to work with.
+            let mut map_ao: Rgba32FImage;
+            let mut map_rough: Rgba32FImage;
+            let mut map_metal: Rgba32FImage;
+
+            // TODO: remove duplication here if possible?
+            if base_path_ao.exists() {
+                let (m, w, h) = util::load_image_adv(base_path_ao.as_path(), resolution, ColorType::Rgba32F);
+                width = min(width, w);
+                height = min(height, h);
+                map_ao = m.into_rgba32f();
+            } else {
+                map_ao = DynamicImage::new_rgba32f(width, height).into_rgba32f();
+            }
+            if base_path_rough.exists() {
+                let (m, w, h) = util::load_image_adv(base_path_rough.as_path(), resolution, ColorType::Rgba32F);
+                width = min(width, w);
+                height = min(height, h);
+                map_rough = m.into_rgba32f();
+            } else {
+                map_rough = DynamicImage::new_rgba32f(width, height).into_rgba32f();
+            }
+            if base_path_metal.exists() {
+                let (m, w, h) = util::load_image_adv(base_path_metal.as_path(), resolution, ColorType::Rgba32F);
+                width = min(width, w);
+                height = min(height, h);
+                map_metal = m.into_rgba32f();
+            } else {
+                map_metal = DynamicImage::new_rgba32f(width, height).into_rgba32f();
+            }
+
+            // TODO: simplify conversion process if possible
+            let maps = vec![map_ao, map_rough, map_metal, image::DynamicImage::new_rgba32f(width, height).into_rgba32f()];
+            let arm = channel_pack_images(maps, false, width, height);
+            out_img = DynamicImage::from(DynamicImage::from(arm).into_rgb8());
+            ct = ColorType::Rgb8; // Override color space
+
+        } else { // Otherwise, use default process
+            let base_path = util::path_material_map(input_dir.as_path(), material.as_str(), channel.as_str(), "png");
+            (out_img, width, height) = util::load_image_adv(base_path.as_path(), resolution, ct);
+        }
+
+        // If requested and this is a normal map, invert green channel
+        if flip_green && channel.eq("normal") {
+            out_img = DynamicImage::from(channel_flip::flip_green(out_img.into_rgb16()));
+        }
+
+        // Save out image
+        util::compressed_save(out_path.as_path(), out_img.as_bytes(), width, height, ct);
+    });
+}
 
 pub(crate) fn from_file(config_file: &Path, _args: Vec<String>) {
     let dir = config_file.parent().unwrap(); // Get working directory
@@ -36,143 +116,36 @@ pub(crate) fn from_file(config_file: &Path, _args: Vec<String>) {
     // Check if we're using DirectX normals--if true, flip green channels
     let flip_normals = config.has_key("flip_normals") && config["flip_normals"].as_bool().unwrap();
 
+    let time_start = time::Instant::now();
+    let mut num_materials: u32 = 0;
+    let mut num_maps: u32 = 0;
+
+    let mut threads: Vec<JoinHandle<()>> = Vec::new();
+
     // Iterate through all materials
-    for (matname, mat) in mats {
+    for (material_name, mat) in mats {
         let channels = mat["channels"].clone();
         let res = mat["res_out"].as_u32().unwrap();
-
-        // Basecolor map
-        if channels.contains("basecolor") {
-            let img_path = util::path_material_map(indir, matname, "basecolor", "png");
-            println!("Loading basecolor from {0}", img_path.to_str().unwrap());
-            let (basecolor_img, width, height) = util::auto_resize(util::load_image(img_path.as_path()), res, res);
-
-            let img_path = util::path_material_map(outdir, matname, "basecolor", "png");
-            println!("\tExporting basecolor to {0}", img_path.to_str().unwrap());
-
-            // If we have an alpha channel, export to RGBA8
-            if channels.contains("alpha") {
-                // TODO: ...but if find a separate, alpha image, use that instead
-
-                util::compressed_save(img_path.as_path(), basecolor_img.into_rgba8().as_bytes(), width, height, ColorType::Rgba8);
-            } else { // Otherwise, just export to RGB8
-                util::compressed_save(img_path.as_path(), basecolor_img.into_rgb8().as_bytes(), width, height, ColorType::Rgb8);
-            }
-        }
-
-        // Normal map
-        if channels.contains("normal") {
-            let img_path = util::path_material_map(indir, matname, "normal", "png");
-            println!("Loading normal map from {0}", img_path.to_str().unwrap());
-
-            let (normal, width, height) = util::auto_resize(util::load_image(img_path.as_path()), res, res);
-
-            let mut normal = normal.into_rgb16();
-
-            if flip_normals {
-                println!("\tFlipping normal map");
-                normal = flip_green(normal);
-            }
-            let normal = normal; // Lock normal so it can no longer be edited
-
-            let img_path = util::path_material_map(outdir, matname, "normal", "png");
-            println!("\tExporting normal map to {0}", img_path.to_str().unwrap());
-            util::compressed_save(img_path.as_path(), normal.as_bytes(), width, height, ColorType::Rgb16);
-        }
-
-        // ORM (Occlusion, Roughness, Metallic)
-        if channels.contains("ao") || channels.contains("roughness") || channels.contains("metallic") {
-            println!("Preparing ORM map...");
-            let mut images: Vec<Rgba32FImage> = Vec::new();
-            let out_path = util::path_material_map(outdir, matname, "orm", "png");
-
-            let mut width = res;
-            let mut height = res;
-
-            // Find all corresponding images, or default to a blank one
-            // TODO: Remove duplicate code by packing into functions
-
-            // Ambient Occlusion
-            let ao_path = util::path_material_map(indir, matname, "ao", "png");
-            if channels.contains("ao") && ao_path.exists() {
-                println!("\tLoading Ambient Occlusion");
-                let (map, new_width, new_height) = util::auto_resize(util::load_image(ao_path.as_path()), res, res);
-
-                // store dimensions
-                width = min(width, new_width);
-                height = min(height, new_height);
-                // then convert
-                let map = map.into_rgba32f();
-                images.push(map);
-            } else {
-                println!("\tUsing default Ambient Occlusion map");
-                // TODO: Fill this image with white instead of black
-                images.push(image::DynamicImage::new_rgba32f(width, height).into_rgba32f());
-            }
-
-            // Roughness
-            let roughness_path = util::path_material_map(indir, matname, "roughness", "png");
-            if channels.contains("roughness") && roughness_path.exists() {
-                println!("\tLoading Roughness");
-                let (map, new_width, new_height) = util::auto_resize(util::load_image(roughness_path.as_path()), res, res);
-
-                // store dimensions
-                width = min(width, new_width);
-                height = min(height, new_height);
-                // then convert
-                let map = map.into_rgba32f();
-                images.push(map);
-            } else {
-                println!("\tUsing default Roughness map");
-                // TODO: Fill this image with grey instead of black
-                images.push(image::DynamicImage::new_rgba32f(res, res).into_rgba32f());
-            }
-
-            // Metallic
-            let metallic_path = util::path_material_map(indir, matname, "metallic", "png");
-            if channels.contains("metallic") && metallic_path.exists() {
-                println!("\tLoading Metallic");
-                let (map, new_width, new_height) = util::auto_resize(util::load_image(metallic_path.as_path()), res, res);
-
-                // store dimensions
-                width = min(width, new_width);
-                height = min(height, new_height);
-                // then convert
-                let map = map.into_rgba32f();
-                images.push(map);
-            } else {
-                println!("\tUsing default Metallic map");
-                images.push(image::DynamicImage::new_rgba32f(res, res).into_rgba32f());
-            }
-
-            // Push blank image for alpha
-            images.push(image::DynamicImage::new_rgba32f(res, res).into_rgba32f());
-
-            // Pack channels
-            println!("Processing ORM map...");
-            let orm_raw = channel_pack_images(images, false, width, height);
-            let orm: ImageBuffer<Rgb<u8>, Vec<u8>> = orm_raw.convert(); // Convert to RGB8
-            println!("\tExporting ORM map to {0}", out_path.to_str().unwrap());
-            orm.save_with_format(out_path.as_path(), ImageFormat::Png).unwrap(); // Save out file
-            
-            util::compressed_save(out_path.as_path(), orm.as_bytes(), width, height, ColorType::Rgb8);
-        }
+        let has_alpha = mat.has_key("alpha");
+        num_materials += 1;
 
         for member in channels.members() {
             let mem = member.as_str().unwrap();
-            if mem.starts_with("mask") || mem.starts_with("opacity") { // Export masks
-                let img_path = util::path_material_map(indir, matname, mem, "png");
-                println!("Found mask {0}, loading...", img_path.to_str().unwrap());
+            num_maps += 1;
 
-                // Load map and dynamically resize it
-                let (map, width, height) = util::auto_resize(util::load_image(img_path.as_path()), res, res);
-                let map = map.into_luma8(); // Convert map into grayscale image
-
-                let img_path = util::path_material_map(outdir, matname, mem, "png");
-                println!("\tExporting mask {0}...", img_path.to_str().unwrap());
-
-                util::compressed_save(img_path.as_path(), map.as_bytes(), width, height, ColorType::L8);
-            }
+            // Spawn thread with basic map conversion information
+            threads.push(threaded_convert(
+                indir_buf.to_str().unwrap().to_string(), outdir_buf.to_str().unwrap().to_string(),
+                material_name.to_string(), mem.to_string(), res, flip_normals, has_alpha
+            ));
         }
     }
+
+    // Wait on all threads
+    for t in threads {
+        t.join().unwrap();
+    }
+
+    let time_end = time::Instant::now();
+    println!("Completed {0} materials with {1} exported maps, in {2} ms", num_materials, num_maps, (time_end - time_start).as_millis());
 }
