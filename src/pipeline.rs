@@ -5,13 +5,10 @@ use std::path::{Path};
 use std::time;
 use std::thread;
 use std::thread::JoinHandle;
-use image::{ColorType, DynamicImage, EncodableLayout, ImageBuffer, ImageFormat, Rgb, Rgba32FImage};
-use image::buffer::ConvertBuffer;
-use image::error::UnsupportedErrorKind::Color;
+use image::{ColorType, DynamicImage, Rgba32FImage};
 use crate::channel_flip;
 use crate::channel_pack::channel_pack_images;
 use crate::util;
-use crate::util::Rgb16Image;
 
 fn threaded_convert(input_dir: String, outdir: String, material: String, channel: String, resolution: u32, flip_green: bool, has_alpha: bool) -> JoinHandle<()> {
     return thread::spawn(move || {
@@ -21,7 +18,7 @@ fn threaded_convert(input_dir: String, outdir: String, material: String, channel
 
         // Load defaults
         let mut ct = util::map_to_color(channel.as_str());
-        let mut out_img: DynamicImage = image::DynamicImage::new_luma8(resolution, resolution); // Create blank template image
+        let mut out_img: DynamicImage; //= image::DynamicImage::new_luma8(resolution, resolution); // Create blank template image
         let out_path = util::path_material_map(output_dir.as_path(), material.as_str(), channel.as_str(), "png");
         let mut width: u32 = resolution;
         let mut height: u32 = resolution;
@@ -37,9 +34,9 @@ fn threaded_convert(input_dir: String, outdir: String, material: String, channel
             let base_path_metal = util::path_material_map(input_dir.as_path(), material.as_str(), "metallic", "png");
 
             // TODO: I don't like storing all these as 32F images. Large and hard to work with.
-            let mut map_ao: Rgba32FImage;
-            let mut map_rough: Rgba32FImage;
-            let mut map_metal: Rgba32FImage;
+            let map_ao: Rgba32FImage;
+            let map_rough: Rgba32FImage;
+            let map_metal: Rgba32FImage;
 
             // TODO: remove duplication here if possible?
             if base_path_ao.exists() {
@@ -75,7 +72,14 @@ fn threaded_convert(input_dir: String, outdir: String, material: String, channel
 
         } else { // Otherwise, use default process
             let base_path = util::path_material_map(input_dir.as_path(), material.as_str(), channel.as_str(), "png");
-            (out_img, width, height) = util::load_image_adv(base_path.as_path(), resolution, ct);
+            if !base_path.exists() { // Exit thread if path isn't found
+                eprintln!("\tFILE NOT FOUND at {0}", base_path.to_str().unwrap());
+                return
+            }
+            let (m, w, h) = util::load_image_adv(base_path.as_path(), resolution, ct);
+            out_img = m;
+            width = w;
+            height = h;
         }
 
         // If requested and this is a normal map, invert green channel
@@ -85,6 +89,7 @@ fn threaded_convert(input_dir: String, outdir: String, material: String, channel
 
         // Save out image
         util::compressed_save(out_path.as_path(), out_img.as_bytes(), width, height, ct);
+        println!("\tExported {0}", out_path.to_str().unwrap());
     });
 }
 

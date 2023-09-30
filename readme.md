@@ -1,5 +1,24 @@
-# Rust Image Toolkit
-Simple tool used for image manipulation/analysis, written in Rust. For learning.
+# IronPress
+Pipeline tool designed to optimize textures for games and animation, written in Rust.
+
+## Use
+If a `.json` file is fed as the first argument, the program runs a pipeline based off the given configuration.
+See [the Clover Pipeline test configuration](test/clover/texture_pipeline.json) for an example.
+
+Images are taken from an input folder relative to the pipeline file.
+They are then scaled accordingly, forced into proper color channel formats, and exported using maximal PNG compression
+into the specified pipeline's output folder (can be relative or absolute).
+The tool is multithreaded, so these will all run asynchronously.
+
+- `$ cargo build --release` - Builds the release executable (note: Debug build is *really* slow)
+- `$ cargo run --release test\clover\texture_pipeline.json` - Run an IronPress pipeline on the provided Clover textures
+
+### Notes
+Certain texture maps have special features.
+- `arm` - Use this to specify that you want ambient occlusion (`ao`), `roughness`, and `metallic` maps combined into RGB (since they're all single-channel).
+
+## Other Tools
+Additional features support image manipulation/analysis via commandline. These are subject to change in the future.
 
 Current list of commands. Each [brackets] represent a filepath to an image (preferably PNG).
 Use underscores (`_`) as placeholder textures. 
@@ -16,6 +35,3 @@ Use underscores (`_`) as placeholder textures.
   - Flips the green channel of a given texture.
   - Used to convert between DirectX and OpenGL normal maps.
   - Stores as **RGB16**.
-
-If a `json` file is fed as the first argument, the program runs a pipeline based off the given configuration.
-See [the Clover Pipeline test configuration](test/clover/texture_pipeline.json) for an example.
