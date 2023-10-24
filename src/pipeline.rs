@@ -98,7 +98,12 @@ pub(crate) fn from_file(config_file: &Path, _args: Vec<String>) {
 
     // Load and parse configuration
     let config_contents = read_to_string(config_file).unwrap();
-    let config = json::parse(config_contents.as_str()).unwrap();
+    let config_result = json::parse(config_contents.as_str());
+    if config_result.is_err() { // Pull error from unwrap and safely exit
+        println!("While parsing JSON config, got error:\t{0}", config_result.unwrap_err());
+        return;
+    }
+    let config = config_result.unwrap();
 
     // Get output directory, relative to parent (or replacing it, if path is absolute)
     let outdir_buf = dir.join(Path::new(&(config["out"].as_str().unwrap())));
