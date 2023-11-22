@@ -28,7 +28,8 @@ fn threaded_convert(input_dir: String, outdir: String, material: String, channel
             ct = ColorType::Rgba8;
         }
 
-        if channel.eq("arm") { // Perform special sequence of actions
+        let base_path = util::path_material_map(input_dir.as_path(), material.as_str(), channel.as_str(), "png");
+        if channel.eq("arm") && !base_path.exists() { // Only load basemaps for ARM if there isn't an existing ARM texture
             let base_path_ao = util::path_material_map(input_dir.as_path(), material.as_str(), "ao", "png");
             let base_path_rough = util::path_material_map(input_dir.as_path(), material.as_str(), "roughness", "png");
             let base_path_metal = util::path_material_map(input_dir.as_path(), material.as_str(), "metallic", "png");
@@ -71,7 +72,6 @@ fn threaded_convert(input_dir: String, outdir: String, material: String, channel
             ct = ColorType::Rgb8; // Override color space
 
         } else { // Otherwise, use default process
-            let base_path = util::path_material_map(input_dir.as_path(), material.as_str(), channel.as_str(), "png");
             if !base_path.exists() { // Exit thread if path isn't found
                 eprintln!("\tFILE NOT FOUND at {0}", base_path.to_str().unwrap());
                 return
