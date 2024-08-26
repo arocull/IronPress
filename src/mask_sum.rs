@@ -1,13 +1,14 @@
 extern crate image;
 
-use image::{Luma, ImageFormat};
 use image::buffer::ConvertBuffer;
-use std::path::{Path};
+use image::{ImageFormat, Luma};
+use std::path::Path;
 use std::process::exit;
 
 use crate::util;
-use util::{Gray16Image, int16_to_float64};
+use util::{int16_to_float64, Gray16Image};
 
+/// Multiplies two images together, calculating a weighted luminance and exporting the resulting combined mask.
 pub(crate) fn execute(paths: Vec<String>, width: u32, height: u32) {
     let mut images: Vec<Gray16Image> = Vec::new();
     let mut out_path: &Path = Path::new("./out/mask.png");
@@ -16,7 +17,8 @@ pub(crate) fn execute(paths: Vec<String>, width: u32, height: u32) {
     // argument 2 is output
     for i in 0..paths.len() {
         if i < 2 {
-            if paths[i].eq("_") { // If we're given a placeholder, input a blank image instead
+            if paths[i].eq("_") {
+                // If we're given a placeholder, input a blank image instead
                 println!("Placeholder images not permitted for masking!");
                 exit(1);
             }

@@ -1,25 +1,37 @@
 extern crate image;
 
-use std::cmp::max;
-use std::path::{Path, PathBuf};
-use image::{ColorType, DynamicImage, GenericImageView, ImageBuffer, ImageEncoder, imageops, Luma, Rgb};
-use std::fs::{File};
-use std::io::BufWriter;
 use image::codecs::png;
+use image::{
+    imageops, ColorType, DynamicImage, GenericImageView, ImageBuffer, ImageEncoder, Luma, Rgb,
+};
+use std::cmp::max;
+use std::fs::File;
+use std::io::BufWriter;
+use std::path::{Path, PathBuf};
 
 pub(crate) type Gray16Image = ImageBuffer<Luma<u16>, Vec<u16>>;
 // pub(crate) type Rgba16Image = ImageBuffer<Rgba<u16>, Vec<u16>>;
 pub(crate) type Rgb16Image = ImageBuffer<Rgb<u16>, Vec<u16>>;
 
-// Load an image into RAM
+/// Load an image into RAM.
+/// TODO: Provide an empty, default image if opening fails.
 pub(crate) fn load_image(path: &Path) -> DynamicImage {
     return image::open(path).unwrap();
 }
 
-pub(crate) fn load_image_adv(path: &Path, res: u32, convert_to: ColorType) -> (DynamicImage, u32, u32) {
+/// Loads an image from the given filepath, converting it to the specified color format.
+pub(crate) fn load_image_adv(
+    path: &Path,
+    res: u32,
+    convert_to: ColorType,
+) -> (DynamicImage, u32, u32) {
     let img_result = image::open(path);
     if img_result.as_ref().is_err() {
-        eprintln!("Failed to open image at path {0}, got error {1}", path.to_str().unwrap(), img_result.as_ref().unwrap_err().to_string());
+        eprintln!(
+            "Failed to open image at path {0}, got error {1}",
+            path.to_str().unwrap(),
+            img_result.as_ref().unwrap_err().to_string()
+        );
     }
     let img = img_result.unwrap();
 
@@ -38,6 +50,7 @@ pub(crate) fn load_image_adv(path: &Path, res: u32, convert_to: ColorType) -> (D
     return auto_resize(map, res, res);
 }
 
+/// Returns the color format for the given map name.
 pub(crate) fn map_to_color(map_name: &str) -> ColorType {
     return match map_name {
         "basecolor" => ColorType::Rgb8,
@@ -58,14 +71,20 @@ pub(crate) fn map_to_color(map_name: &str) -> ColorType {
         "alpha" => ColorType::L8,
 
         _ => ColorType::Rgb8,
-    }
+    };
 }
 
 pub(crate) fn int16_to_float64(a: u16) -> f64 {
     return (a as f64) / (u16::MAX as f64);
 }
 
-pub(crate) fn auto_resize(img: DynamicImage, mut width: u32, mut height: u32) -> (DynamicImage, u32, u32) {
+/// Automatically resizes an image, preserving aspect ratio, so the maximum dimension of the image matches the max specified dimension.
+/// If the image already matches the specified dimension, then no operation is performed.
+pub(crate) fn auto_resize(
+    img: DynamicImage,
+    mut width: u32,
+    mut height: u32,
+) -> (DynamicImage, u32, u32) {
     let (dim_x, dim_y) = img.dimensions();
 
     // Pick resizing filter based off of what we're doing, up-scaling versus downscaling
@@ -78,27 +97,56 @@ pub(crate) fn auto_resize(img: DynamicImage, mut width: u32, mut height: u32) ->
         height = (dim_y as f64 * scale_factor) as u32;
     }
 
-    if dim_x > width || dim_y > height { // If we're up-scaling an image, use Catmull Rom
-        return (img.resize(width, height, imageops::FilterType::CatmullRom), width, height);
-    } else if dim_x != width || dim_y != height { // If we're downscaling an image, use Lanczos
-        return (img.resize(width, height, imageops::FilterType::Lanczos3), width, height);
+    if dim_x > width || dim_y > height {
+        // If we're up-scaling an image, use Catmull Rom
+        return (
+            img.resize(width, height, imageops::FilterType::CatmullRom),
+            width,
+            height,
+        );
+    } else if dim_x != width || dim_y != height {
+        // If we're downscaling an image, use Lanczos
+        return (
+            img.resize(width, height, imageops::FilterType::Lanczos3),
+            width,
+            height,
+        );
     }
 
     return (img, width, height);
 }
 
-// Saves an image buffer to the given path, using a specific color format, at the best compression
-pub(crate) fn compressed_save(path: &Path, buffer: &[u8], width: u32, height: u32, format: ColorType) {
+/// Saves an image buffer to the given path, using a specific color format, at the best compression
+pub(crate) fn compressed_save(
+    path: &Path,
+    buffer: &[u8],
+    width: u32,
+    height: u32,
+    format: ColorType,
+) {
     let f = File::create(path).unwrap(); // Create a file at the given path
     let writer = BufWriter::new(f); // Create a writer buffer to it
+
     // Set up a PNG encoder on top of the buffer, and attempt to maximize compression (for space efficiency)
-    let encoder = png::PngEncoder::new_with_quality(writer, png::CompressionType::Best, png::FilterType::Adaptive);
+    let encoder = png::PngEncoder::new_with_quality(
+        writer,
+        png::CompressionType::Best,
+        png::FilterType::Adaptive,
+    );
+
     encoder.write_image(buffer, width, height, format).unwrap(); // Finally, write out the image
 }
 
-pub(crate) fn path_material_map(directory: &Path, material_name: &str, data: &str, format: &str) -> PathBuf {
+/// Creates a texture filepath for the given parameters.
+/// Can be absolute or relative, depending on `directory` input.
+pub(crate) fn path_material_map(
+    directory: &Path,
+    material_name: &str,
+    data: &str,
+    format: &str,
+) -> PathBuf {
     // Concatenate strings together
-    let mut owned_str: String = material_name.clone().to_string();
+    let mut owned_str: String = material_name.to_string();
     owned_str.push_str("_");
     owned_str.push_str(data);
     owned_str.push_str(".");

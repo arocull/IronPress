@@ -1,10 +1,10 @@
 extern crate image;
 
-use image::{ImageBuffer, Rgb, ImageFormat};
-use image::buffer::ConvertBuffer;
-use std::path::{Path};
 use crate::util;
 use crate::util::Rgb16Image;
+use image::buffer::ConvertBuffer;
+use image::{ImageBuffer, ImageFormat, Rgb};
+use std::path::Path;
 
 pub(crate) fn execute(paths: Vec<String>) {
     let mut texture: Rgb16Image = image::DynamicImage::new_rgb16(1, 1).into_rgb16();
@@ -14,7 +14,8 @@ pub(crate) fn execute(paths: Vec<String>) {
     // argument 1 is output
     for i in 0..paths.len() {
         if i == 0 {
-            if paths[i].eq("_") { // If we're given a placeholder, input a blank image instead
+            if paths[i].eq("_") {
+                // If we're given a placeholder, input a blank image instead
                 println!("Placeholders not allowed for channel flipping!");
                 return;
             }

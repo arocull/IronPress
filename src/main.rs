@@ -1,13 +1,13 @@
 extern crate image;
 
 use std::env;
-use std::path::{Path};
+use std::path::Path;
 
-mod channel_pack;
 mod channel_flip;
+mod channel_pack;
 mod mask_sum;
-mod util;
 mod pipeline;
+mod util;
 
 fn main() {
     let args: Vec<_> = env::args().collect();

@@ -1,9 +1,10 @@
 extern crate image;
 
-use image::{ImageBuffer, Rgb, Rgba, ImageFormat, Rgba32FImage};
 use image::buffer::ConvertBuffer;
-use std::path::{Path};
+use image::{ImageBuffer, ImageFormat, Rgb, Rgba, Rgba32FImage};
+use std::path::Path;
 
+/// Perform channel packing for the given set of image paths.
 pub(crate) fn execute(paths: Vec<String>) {
     let mut images: Vec<Rgba32FImage> = Vec::new();
     let mut out_path: &Path = Path::new("./out/pack.png");
@@ -18,16 +19,19 @@ pub(crate) fn execute(paths: Vec<String>) {
     // argument 4 is output
     for i in 0..paths.len() {
         if i < 4 {
-            if paths[i].eq("_") { // If we're given a placeholder, input a blank image instead, with dimensions implied from previous inputs
+            if paths[i].eq("_") {
+                // If we're given a placeholder, input a blank image instead, with dimensions implied from previous inputs
                 images.push(image::DynamicImage::new_rgba32f(width, height).into_rgba32f());
             } else {
                 println!("...loading {}", paths[i]);
                 let img = image::open(paths[i].as_str()).unwrap().into_rgba32f();
 
-                if !set_dim { // If this is our first input image, store its dimensions
+                if !set_dim {
+                    // If this is our first input image, store its dimensions
                     (width, height) = img.dimensions();
                     set_dim = true
-                } else { // Otherwise, make sure given image fits the dimensions of the parent
+                } else {
+                    // Otherwise, make sure given image fits the dimensions of the parent
                     let (w, h) = img.dimensions();
                     assert_eq!(width, w, "Input image widths did not match");
                     assert_eq!(height, h, "Input image heights did not match");
@@ -50,17 +54,24 @@ pub(crate) fn execute(paths: Vec<String>) {
     // When outputting image, we compress to 8-bit channels
     // TODO: flag for using 16-bit channels in case we need a high range of value
     // ...but most programs don't work in 32-bit, so we don't need that extreme either
-    if use_alpha { // Output image with an alpha channel, if one was used
+    if use_alpha {
+        // Output image with an alpha channel, if one was used
         let output: ImageBuffer<Rgba<u8>, Vec<u8>> = output.convert();
         output.save_with_format(out_path, ImageFormat::Png).unwrap();
-    } else { // Otherwise, output without alpha
+    } else {
+        // Otherwise, output without alpha
         let output: ImageBuffer<Rgb<u8>, Vec<u8>> = output.convert();
         output.save_with_format(out_path, ImageFormat::Png).unwrap();
     }
 }
 
-// Pack channels of an image
-pub(crate) fn channel_pack_images(channel_data: Vec<Rgba32FImage>, use_alpha: bool, width: u32, height: u32) -> ImageBuffer<Rgba<f32>, Vec<f32>> {
+/// Provided a set of images, packs the Red channel of each image into the corresponding RGBA channels of a new one.
+pub(crate) fn channel_pack_images(
+    channel_data: Vec<Rgba32FImage>,
+    use_alpha: bool,
+    width: u32,
+    height: u32,
+) -> ImageBuffer<Rgba<f32>, Vec<f32>> {
     // Prep new image
     let mut imgbuf = image::ImageBuffer::new(width, height);
     // Fill out pixels of new image with data from inputs
@@ -69,7 +80,8 @@ pub(crate) fn channel_pack_images(channel_data: Vec<Rgba32FImage>, use_alpha: bo
         let g = channel_data[1].get_pixel(x, y).0[1] as f32;
         let b = channel_data[2].get_pixel(x, y).0[2] as f32;
         let mut a = channel_data[3].get_pixel(x, y).0[3] as u8;
-        if !use_alpha { // If we're not using alpha, maximize the alpha channel
+        if !use_alpha {
+            // If we're not using alpha, maximize the alpha channel
             a = 255 as u8;
         }
 
