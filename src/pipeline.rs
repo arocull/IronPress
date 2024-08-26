@@ -10,7 +10,7 @@ use std::thread::JoinHandle;
 use std::time;
 use std::{fs, path};
 
-/// Loads, (optionally) packs, converts, and compresses a single image from the given parameters. 
+/// Loads, (optionally) packs, converts, and compresses a single image from the given parameters.
 fn threaded_convert(
     input_dir: String,
     outdir: String,
@@ -200,7 +200,7 @@ pub(crate) fn from_file(config_file: &Path, _args: Vec<String>) {
 
     // Wait on all threads
     for t in threads {
-        t.join().unwrap();
+        t.join().expect("Await thread to rejoin main thread");
     }
 
     let time_end = time::Instant::now();
@@ -210,4 +210,71 @@ pub(crate) fn from_file(config_file: &Path, _args: Vec<String>) {
         num_maps,
         (time_end - time_start).as_millis()
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{env, fs, path::PathBuf};
+
+    use super::from_file;
+
+    #[test]
+    fn validate_pipeline() {
+        // First, find our test pipeline
+        let path_directory = env::current_dir().expect("Get current working directory");
+        let path_pipeline = path_directory.join(PathBuf::from("test/clover/texture_pipeline.json"));
+
+        // Find output directory
+        let path_output = path_directory.join(PathBuf::from("test/clover/out"));
+        // If we had an existing output directory, destroy it to ensure we can create them on the fly
+        if path_output.exists() {
+            fs::remove_dir_all(path_output.clone())
+                .expect("Failed to delete output directory for test");
+            assert!(
+                !path_output.exists(),
+                "Output directory still exists, cannot perform valid test"
+            );
+        }
+
+        assert!(path_pipeline.exists(), "Test pipeline file didn't exist"); // Ensure that the filepath exists
+
+        // Perform our pipeline output
+        from_file(&path_pipeline, vec![]);
+
+        // Ensure that our output directory exists
+        assert!(path_output.exists(), "Output directory didn't exist");
+
+        // For each output file...
+        let textures = vec![
+            path_directory.join(PathBuf::from("test/clover/out/mat_fur_mask.png")),
+            path_directory.join(PathBuf::from("test/clover/out/mat_daisy_basecolor.png")),
+            path_directory.join(PathBuf::from("test/clover/out/mat_daisy_arm.png")),
+            path_directory.join(PathBuf::from("test/clover/out/mat_daisy_normal.png")),
+            path_directory.join(PathBuf::from("test/clover/out/mat_body_basecolor.png")),
+            path_directory.join(PathBuf::from("test/clover/out/mat_body_arm.png")),
+            path_directory.join(PathBuf::from("test/clover/out/mat_body_normal.png")),
+            path_directory.join(PathBuf::from("test/clover/out/mat_sunhat_basecolor.png")),
+            path_directory.join(PathBuf::from("test/clover/out/mat_sunhat_arm.png")),
+            path_directory.join(PathBuf::from("test/clover/out/mat_sunhat_normal.png")),
+            path_directory.join(PathBuf::from("test/clover/out/mat_sunhat_mask.png")),
+            path_directory.join(PathBuf::from("test/clover/out/mat_shears_basecolor.png")),
+            path_directory.join(PathBuf::from("test/clover/out/mat_shears_arm.png")),
+            path_directory.join(PathBuf::from("test/clover/out/mat_shears_normal.png")),
+            path_directory.join(PathBuf::from("test/clover/out/mat_eye_basecolor.png")),
+            path_directory.join(PathBuf::from("test/clover/out/mat_eye_normal.png")),
+        ];
+
+        // ...verify that it outputted...
+        for path_texture in textures.iter() {
+            assert!(
+                path_texture.exists(),
+                "Failed to find output texture {0}",
+                path_texture
+                    .to_str()
+                    .expect("Failed to cast output path to string")
+            );
+        }
+
+        // TODO: verify bit depth, resolution, differing channel values for ARM textures
+    }
 }
