@@ -1,5 +1,5 @@
 # IronPress
-Pipeline tool designed to optimize textures for games and animation, written in Rust.
+Texture optimization tool for games and animation. Developed in Rust.
 
 ## Use
 If a `.json` file is fed as the first argument, the program runs a pipeline based off the given configuration.
