@@ -13,6 +13,9 @@ The tool is multithreaded, so these will all run asynchronously.
 - `$ cargo build --release` - Builds the release executable (note: Debug build is *really* slow)
 - `$ cargo run --release test\clover\texture_pipeline.json` - Run an IronPress pipeline on the provided Clover textures
 
+There is an example project inside `test/clover` with input textures and a texture pipeline file.
+Run `$ cargo test --release` (`release` because it's fast) in the top-level directory to see the output.
+
 ### Notes
 Certain texture maps have special features.
 - `arm` - Use this to specify that you want ambient occlusion (`ao`), `roughness`, and `metallic` maps combined into RGB (since they're all single-channel).
