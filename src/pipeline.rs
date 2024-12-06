@@ -141,7 +141,7 @@ pub fn from_file(config_file: &Path) {
     let config = config_result.unwrap();
 
     // Get output directory, relative to parent (or replacing it, if path is absolute)
-    let outdir_buf = dir.join(Path::new(&(config["out"].as_str().unwrap())));
+    let outdir_buf = dir.join(Path::new(&(config["output"].as_str().unwrap())));
     let outdir = outdir_buf.as_path();
     if !outdir.exists() {
         // If path does not exist, create all folders so it does
@@ -149,7 +149,7 @@ pub fn from_file(config_file: &Path) {
     }
 
     // Get input directory, relative to parent (or replacing it, if path is absolute)
-    let indir_buf = dir.join(Path::new(&(config["in"].as_str().unwrap())));
+    let indir_buf = dir.join(Path::new(&(config["input"].as_str().unwrap())));
     let indir = indir_buf.as_path();
     if !indir.exists() {
         // If path does not exist, create all folders so it does
@@ -175,7 +175,7 @@ pub fn from_file(config_file: &Path) {
     // Iterate through all materials
     for (material_name, mat) in mats {
         let channels = mat["channels"].clone();
-        let res = mat["res_out"].as_u32().unwrap();
+        let res = mat["max_dimension"].as_u32().unwrap();
         let has_alpha = mat.has_key("alpha");
         num_materials += 1;
 
