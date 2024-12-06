@@ -13,8 +13,11 @@ pub fn default() -> json::JsonValue {
                 alpha: false,
                 channels: [
                     "basecolor",
-                    "arm",
                     "normal",
+                    "arm",
+                    "ao",
+                    "roughness",
+                    "metallic",
                     "mask",
                 ]
             }
