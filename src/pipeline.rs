@@ -17,6 +17,7 @@ fn threaded_convert(
     resolution: u32,
     flip_green: bool,
     has_alpha: bool,
+    dryrun: bool,
 ) -> JoinHandle<()> {
     return thread::spawn(move || {
         // Generate file paths from strings (since we can't copy them from threads)
@@ -117,6 +118,11 @@ fn threaded_convert(
             out_img = DynamicImage::from(op::flip::flip_green(out_img.into_rgb16()));
         }
 
+        if dryrun {
+            println!("\tProcessed {0}", out_path.to_str().unwrap());
+            return;
+        }
+
         // Save out image
         util::compressed_save(out_path.as_path(), out_img.as_bytes(), width, height, ct.into());
         println!("\tExported {0}", out_path.to_str().unwrap());
@@ -124,7 +130,7 @@ fn threaded_convert(
 }
 
 /// Loads an IronPress Pipeline JSON file and converts spawns a thread for converting each material, awaiting until all threads are completed.  
-pub fn from_file(config_file: &Path) {
+pub fn from_file(config_file: &Path, dryrun: bool) {
     let dir = config_file.parent().unwrap(); // Get working directory
 
     // Load and parse configuration
@@ -143,7 +149,7 @@ pub fn from_file(config_file: &Path) {
     // Get output directory, relative to parent (or replacing it, if path is absolute)
     let outdir_buf = dir.join(Path::new(&(config["output"].as_str().unwrap())));
     let outdir = outdir_buf.as_path();
-    if !outdir.exists() {
+    if !outdir.exists() && !dryrun {
         // If path does not exist, create all folders so it does
         fs::create_dir_all(outdir).unwrap();
     }
@@ -192,6 +198,7 @@ pub fn from_file(config_file: &Path) {
                 res,
                 flip_normals,
                 has_alpha,
+                dryrun,
             ));
         }
     }
@@ -237,7 +244,7 @@ mod tests {
         assert!(path_pipeline.exists(), "Test pipeline file didn't exist"); // Ensure that the filepath exists
 
         // Perform our pipeline output
-        from_file(&path_pipeline);
+        from_file(&path_pipeline, false);
 
         // Ensure that our output directory exists
         assert!(path_output.exists(), "Output directory didn't exist");

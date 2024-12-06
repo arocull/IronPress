@@ -14,4 +14,8 @@ pub struct CLIArguments {
     /// Dumps a default IronPress configuration into the given file
     #[arg(short, long)]
     pub default: bool,
+
+    /// Parses the configuration and builds textures, but does not output any files
+    #[arg(short, long)]
+    pub dryrun: bool,
 }

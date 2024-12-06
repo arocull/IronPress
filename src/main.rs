@@ -33,5 +33,5 @@ fn main() {
     }
 
     // Perform pipeline.
-    pipeline::from_file(Path::new(&args.file));
+    pipeline::from_file(Path::new(&args.file), args.dryrun);
 }
