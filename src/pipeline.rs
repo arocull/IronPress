@@ -1,6 +1,4 @@
-use crate::channel_flip;
-use crate::channel_pack::channel_pack_images;
-use crate::util;
+use crate::{op, util};
 use image::{ColorType, DynamicImage, Rgba32FImage};
 use std::cmp::min;
 use std::fs::read_to_string;
@@ -98,7 +96,7 @@ fn threaded_convert(
                 map_metal,
                 image::DynamicImage::new_rgba32f(width, height).into_rgba32f(),
             ];
-            let arm = channel_pack_images(maps, false, width, height);
+            let arm = op::pack::channel_pack(maps, false, width, height);
             out_img = DynamicImage::from(DynamicImage::from(arm).into_rgb8());
             ct = ColorType::Rgb8; // Override color space
         } else {
@@ -116,17 +114,17 @@ fn threaded_convert(
 
         // If requested and this is a normal map, invert green channel
         if flip_green && channel.eq("normal") {
-            out_img = DynamicImage::from(channel_flip::flip_green(out_img.into_rgb16()));
+            out_img = DynamicImage::from(op::flip::flip_green(out_img.into_rgb16()));
         }
 
         // Save out image
-        util::compressed_save(out_path.as_path(), out_img.as_bytes(), width, height, ct);
+        util::compressed_save(out_path.as_path(), out_img.as_bytes(), width, height, ct.into());
         println!("\tExported {0}", out_path.to_str().unwrap());
     });
 }
 
 /// Loads an IronPress Pipeline JSON file and converts spawns a thread for converting each material, awaiting until all threads are completed.  
-pub(crate) fn from_file(config_file: &Path) {
+pub fn from_file(config_file: &Path) {
     let dir = config_file.parent().unwrap(); // Get working directory
 
     // Load and parse configuration
