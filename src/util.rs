@@ -1,26 +1,18 @@
-extern crate image;
-
 use image::codecs::png;
 use image::{
-    imageops, ColorType, DynamicImage, GenericImageView, ImageBuffer, ImageEncoder, Luma, Rgb,
+    imageops, ColorType, DynamicImage, ExtendedColorType, GenericImageView, ImageBuffer, ImageEncoder, Rgb
 };
 use std::cmp::max;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 
-pub(crate) type Gray16Image = ImageBuffer<Luma<u16>, Vec<u16>>;
-// pub(crate) type Rgba16Image = ImageBuffer<Rgba<u16>, Vec<u16>>;
-pub(crate) type Rgb16Image = ImageBuffer<Rgb<u16>, Vec<u16>>;
-
-/// Load an image into RAM.
-/// TODO: Provide an empty, default image if opening fails.
-pub(crate) fn load_image(path: &Path) -> DynamicImage {
-    return image::open(path).unwrap();
-}
+// pub type Gray16Image = ImageBuffer<Luma<u16>, Vec<u16>>;
+// pub type Rgba16Image = ImageBuffer<Rgba<u16>, Vec<u16>>;
+pub type Rgb16Image = ImageBuffer<Rgb<u16>, Vec<u16>>;
 
 /// Loads an image from the given filepath, converting it to the specified color format.
-pub(crate) fn load_image_adv(
+pub fn load_image_adv(
     path: &Path,
     res: u32,
     convert_to: ColorType,
@@ -51,7 +43,7 @@ pub(crate) fn load_image_adv(
 }
 
 /// Returns the color format for the given map name.
-pub(crate) fn map_to_color(map_name: &str) -> ColorType {
+pub fn map_to_color(map_name: &str) -> ColorType {
     return match map_name {
         "basecolor" => ColorType::Rgb8,
         "diffuse" => ColorType::Rgb8,
@@ -74,13 +66,13 @@ pub(crate) fn map_to_color(map_name: &str) -> ColorType {
     };
 }
 
-pub(crate) fn int16_to_float64(a: u16) -> f64 {
-    return (a as f64) / (u16::MAX as f64);
-}
+// pub fn int16_to_float64(a: u16) -> f64 {
+//     return (a as f64) / (u16::MAX as f64);
+// }
 
 /// Automatically resizes an image, preserving aspect ratio, so the maximum dimension of the image matches the max specified dimension.
 /// If the image already matches the specified dimension, then no operation is performed.
-pub(crate) fn auto_resize(
+pub fn auto_resize(
     img: DynamicImage,
     mut width: u32,
     mut height: u32,
@@ -117,12 +109,12 @@ pub(crate) fn auto_resize(
 }
 
 /// Saves an image buffer to the given path, using a specific color format, at the best compression
-pub(crate) fn compressed_save(
+pub fn compressed_save(
     path: &Path,
     buffer: &[u8],
     width: u32,
     height: u32,
-    format: ColorType,
+    format: ExtendedColorType,
 ) {
     let f = File::create(path).unwrap(); // Create a file at the given path
     let writer = BufWriter::new(f); // Create a writer buffer to it
@@ -139,7 +131,7 @@ pub(crate) fn compressed_save(
 
 /// Creates a texture filepath for the given parameters.
 /// Can be absolute or relative, depending on `directory` input.
-pub(crate) fn path_material_map(
+pub fn path_material_map(
     directory: &Path,
     material_name: &str,
     data: &str,

@@ -1,39 +1,37 @@
-extern crate image;
+#![doc(html_favicon_url = "https://alanocull.com/favicon.ico")]
+//! Texture optimization tool for games and animation.
 
-use std::env;
-use std::path::Path;
-
-mod channel_flip;
-mod channel_pack;
-mod mask_sum;
-mod pipeline;
+/// Command line interface helpers.
+mod cli {
+    /// Launch argument helpers for IronPress.
+    pub mod args;
+    /// Configuration file formatting.
+    pub mod config;
+}
+/// Common utilities.
 mod util;
+/// Operations for manipulating images.
+mod op {
+    /// Methods for flipping channels.
+    pub mod flip;
+    /// Methods for packing channels.
+    pub mod pack;
+}
+/// Texture pipeline command.
+mod pipeline;
+
+use std::{path::Path, process::exit};
+use clap::Parser;
 
 fn main() {
-    let args: Vec<_> = env::args().collect();
+    // Parse command-line arguments via clap.
+    let args = cli::args::CLIArguments::parse();
 
-    // First argument is where executable is
-    // Second argument is mode to use
-    let command = args[1].clone();
-
-    // Pack remaining arguments into a list for future processing
-    let mut args_packed: Vec<String> = Vec::new();
-    for i in 2..args.len() {
-        args_packed.push(args[i].clone());
+    if args.default {
+        let success = cli::config::write_default(Path::new(&args.file));
+        exit(!success as i32);
     }
 
-    if command.ends_with(".json") {
-        // Perform pipeline
-        pipeline::from_file(Path::new(&command), args_packed);
-        return;
-    }
-
-    // Perform command based off argument
-    if command.eq("mask") {
-        mask_sum::execute(args_packed, 2048, 2048);
-    } else if command.eq("pack") {
-        channel_pack::execute(args_packed);
-    } else if command.eq("flipnorm") {
-        channel_flip::execute(args_packed);
-    }
+    // Perform pipeline.
+    pipeline::from_file(Path::new(&args.file), args.dryrun);
 }

@@ -1,20 +1,20 @@
 {
-    "out": "out",
-    "in": "textures",
+    "input": "./textures/",
+    "output": "./out/",
     "flip_normals": false,
     "globals": {
         "baking_samples": 1024
     },
     "materials": {
         "mat_fur": {
-            "res_out": 256,
+            "max_dimension": 256,
             "channels": [
                 "mask"
             ]
         },
         "mat_daisy": {
             "res_base": 2048,
-            "res_out": 512,
+            "max_dimension": 512,
 			"alpha": true,
             "channels": [
                 "basecolor",
@@ -24,7 +24,7 @@
         },
         "mat_body": {
             "res_base": 4096,
-            "res_out": 2048,
+            "max_dimension": 2048,
             "channels": [
                 "basecolor",
                 "arm",
@@ -33,7 +33,7 @@
         },
         "mat_sunhat": {
             "res_base": 2048,
-            "res_out": 1024,
+            "max_dimension": 1024,
             "channels": [
                 "basecolor",
                 "arm",
@@ -43,7 +43,7 @@
         },
         "mat_shears": {
             "res_base": 2048,
-            "res_out": 1024,
+            "max_dimension": 1024,
             "channels": [
                 "basecolor",
                 "arm",
@@ -52,7 +52,7 @@
         },
         "mat_eye": {
             "res_base": 1024,
-            "res_out": 512,
+            "max_dimension": 512,
             "channels": [
                 "basecolor",
                 "normal"

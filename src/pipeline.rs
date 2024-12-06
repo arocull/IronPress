@@ -1,6 +1,4 @@
-use crate::channel_flip;
-use crate::channel_pack::channel_pack_images;
-use crate::util;
+use crate::{op, util};
 use image::{ColorType, DynamicImage, Rgba32FImage};
 use std::cmp::min;
 use std::fs::read_to_string;
@@ -19,6 +17,7 @@ fn threaded_convert(
     resolution: u32,
     flip_green: bool,
     has_alpha: bool,
+    dryrun: bool,
 ) -> JoinHandle<()> {
     return thread::spawn(move || {
         // Generate file paths from strings (since we can't copy them from threads)
@@ -98,7 +97,7 @@ fn threaded_convert(
                 map_metal,
                 image::DynamicImage::new_rgba32f(width, height).into_rgba32f(),
             ];
-            let arm = channel_pack_images(maps, false, width, height);
+            let arm = op::pack::channel_pack(maps, false, width, height);
             out_img = DynamicImage::from(DynamicImage::from(arm).into_rgb8());
             ct = ColorType::Rgb8; // Override color space
         } else {
@@ -116,17 +115,22 @@ fn threaded_convert(
 
         // If requested and this is a normal map, invert green channel
         if flip_green && channel.eq("normal") {
-            out_img = DynamicImage::from(channel_flip::flip_green(out_img.into_rgb16()));
+            out_img = DynamicImage::from(op::flip::flip_green(out_img.into_rgb16()));
+        }
+
+        if dryrun {
+            println!("\tProcessed {0}", out_path.to_str().unwrap());
+            return;
         }
 
         // Save out image
-        util::compressed_save(out_path.as_path(), out_img.as_bytes(), width, height, ct);
+        util::compressed_save(out_path.as_path(), out_img.as_bytes(), width, height, ct.into());
         println!("\tExported {0}", out_path.to_str().unwrap());
     });
 }
 
 /// Loads an IronPress Pipeline JSON file and converts spawns a thread for converting each material, awaiting until all threads are completed.  
-pub(crate) fn from_file(config_file: &Path, _args: Vec<String>) {
+pub fn from_file(config_file: &Path, dryrun: bool) {
     let dir = config_file.parent().unwrap(); // Get working directory
 
     // Load and parse configuration
@@ -143,15 +147,15 @@ pub(crate) fn from_file(config_file: &Path, _args: Vec<String>) {
     let config = config_result.unwrap();
 
     // Get output directory, relative to parent (or replacing it, if path is absolute)
-    let outdir_buf = dir.join(Path::new(&(config["out"].as_str().unwrap())));
+    let outdir_buf = dir.join(Path::new(&(config["output"].as_str().unwrap())));
     let outdir = outdir_buf.as_path();
-    if !outdir.exists() {
+    if !outdir.exists() && !dryrun {
         // If path does not exist, create all folders so it does
         fs::create_dir_all(outdir).unwrap();
     }
 
     // Get input directory, relative to parent (or replacing it, if path is absolute)
-    let indir_buf = dir.join(Path::new(&(config["in"].as_str().unwrap())));
+    let indir_buf = dir.join(Path::new(&(config["input"].as_str().unwrap())));
     let indir = indir_buf.as_path();
     if !indir.exists() {
         // If path does not exist, create all folders so it does
@@ -177,7 +181,7 @@ pub(crate) fn from_file(config_file: &Path, _args: Vec<String>) {
     // Iterate through all materials
     for (material_name, mat) in mats {
         let channels = mat["channels"].clone();
-        let res = mat["res_out"].as_u32().unwrap();
+        let res = mat["max_dimension"].as_u32().unwrap();
         let has_alpha = mat.has_key("alpha");
         num_materials += 1;
 
@@ -194,6 +198,7 @@ pub(crate) fn from_file(config_file: &Path, _args: Vec<String>) {
                 res,
                 flip_normals,
                 has_alpha,
+                dryrun,
             ));
         }
     }
@@ -239,7 +244,7 @@ mod tests {
         assert!(path_pipeline.exists(), "Test pipeline file didn't exist"); // Ensure that the filepath exists
 
         // Perform our pipeline output
-        from_file(&path_pipeline, vec![]);
+        from_file(&path_pipeline, false);
 
         // Ensure that our output directory exists
         assert!(path_output.exists(), "Output directory didn't exist");
