@@ -126,7 +126,7 @@ fn threaded_convert(
 }
 
 /// Loads an IronPress Pipeline JSON file and converts spawns a thread for converting each material, awaiting until all threads are completed.  
-pub(crate) fn from_file(config_file: &Path, _args: Vec<String>) {
+pub(crate) fn from_file(config_file: &Path) {
     let dir = config_file.parent().unwrap(); // Get working directory
 
     // Load and parse configuration
@@ -239,7 +239,7 @@ mod tests {
         assert!(path_pipeline.exists(), "Test pipeline file didn't exist"); // Ensure that the filepath exists
 
         // Perform our pipeline output
-        from_file(&path_pipeline, vec![]);
+        from_file(&path_pipeline);
 
         // Ensure that our output directory exists
         assert!(path_output.exists(), "Output directory didn't exist");

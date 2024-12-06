@@ -1,11 +1,18 @@
 [package]
-name = "IronPress"
+name = "ironpress"
 version = "0.1.1"
 edition = "2021"
+authors = ["Alan O'Cull <alanrocull@gmail.com>"]
+categories = ["command-line-utilities"]
+description = "texture optimization tool for games and animation"
+keywords = ["texture", "compression"]
+readme = "readme.md"
+repository = "https://github.com/arocull/IronPress"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+clap = { version = "4.5.21", features = ["derive"] }
 image = "0.24.5"
 json = "0.12.4"
 num-complex = "0.4.3"
