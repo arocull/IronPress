@@ -18,6 +18,7 @@ pub fn default() -> json::JsonValue {
                     "ao",
                     "roughness",
                     "metallic",
+                    "metalgloss",
                     "mask",
                 ]
             }

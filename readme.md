@@ -22,3 +22,4 @@ Order of operations:
 ### Notes
 Certain texture maps have special features.
 - `arm` - Use this to specify that you want ambient occlusion (`ao`), `roughness`, and `metallic` maps combined into RGB (since they're all single-channel).
+- `metalgloss` - Use this to combine metallic and roughness into one texture.
